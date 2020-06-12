@@ -10,7 +10,8 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
 	<flow name="getFlights" doc:id="9b80989d-7a38-4be2-a1a1-8373f464040c" >
 		<http:listener doc:name="GET /flights" doc:id="b502b350-a4b2-4e47-8e55-2559b4dde43f" config-ref="HTTP_Listener_config" path="/flights" allowedMethods="GET" >
-			<http:error-response>
+			<http:response statusCode="#[vars.httpStatus default 200]" />
+			<http:error-response statusCode="#[vars.httpStatus default 500]">
 				<http:body ><![CDATA[#[payload]]]></http:body>
 			</http:error-response>
 		</http:listener>
@@ -39,6 +40,34 @@ payload]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<logger level="INFO" doc:name="Logger" doc:id="d8b16d92-c469-4bf8-8f66-3a1b0a655ada" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="a7ab071d-7804-4e57-9c9d-4b0d818cb622" type="AMERICAN-FLIGHTS-API:BAD_REQUEST">
+				<ee:transform doc:name="Transform Message" doc:id="c42e3ffb-627c-45cc-92a7-6babd8c085d5" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "no flights to" ++ vars.code as String
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="200" doc:name="httpStatus" doc:id="fa7950c7-5fe4-4636-876a-9cfd91e9288e" variableName="httpStatus"/>
+			</on-error-propagate>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="ec33077e-8409-41ab-9843-736660d05786" type="VALIDATION:INVALID_BOOLEAN">
+				<ee:transform doc:name="Transform Message" doc:id="57256b76-8a68-452a-b7e1-3e309378cfcc" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="400" doc:name="httpStatus" doc:id="4ed4ec12-30f1-433b-ae49-450680cd4e67" variableName="httpStatus"/>
+			</on-error-continue>
+		</error-handler>
 	</flow>
 	<sub-flow name="setCode" doc:id="e79e61f6-f17b-4aae-acba-bb718670cc7a" >
 		<set-variable value="#[message.attributes.queryParams.code]" doc:name="setCode" doc:id="af98a01c-82d8-40f0-8cf3-1c6c45e3734e" variableName="code" />
